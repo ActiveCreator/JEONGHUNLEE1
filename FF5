@@ -11,3 +11,57 @@ import dateutil
 
 from IPython.core.interactiveshell import InteractiveShell
 InteractiveShell.ast_node_interactivity = "all"
+
+data = pd.read_csv("C:/DART/DATA/FF5_KSE.csv", encoding = "CP949", thousands = ',')
+data = data.drop(["Kind", "Item", "Symbol", "Frequency"], axis = 1)
+data = data.set_index(keys = 'Symbol Name')
+
+data = data.rename(columns= {"Item Name " : "feature"})
+
+주가 = data[data.feature == "수정주가(원)"].iloc[:,1:]
+시가총액 = data[data.feature == "시가총액 (보통-상장예정주식수 포함)(백만원)"].iloc[:,1:]
+총자산 = data[data.feature == "총자산(천원)"].iloc[:,1:]
+매출액 = data[data.feature == "매출액(천원)"].iloc[:,1:]
+매출원가 = data[data.feature == "매출원가(천원)"].iloc[:,1:]
+판관비 = data[data.feature == "판매비와관리비(천원)"].iloc[:,1:]
+이자비용 = data[data.feature == "이자비용(비영업)(천원)"].iloc[:,1:]
+총자본 = data[data.feature == "총자본(천원)"].iloc[:,1:]
+이연부채 = data[data.feature == "이연법인세부채(천원)"].iloc[:,1:]
+우선주자본금 = data[data.feature == "우선주자본금(천원)"].iloc[:,1:]
+
+ME = pd.date_range("1998-12-31", "2020-12-31", freq="M");ME
+MS = pd.date_range("1999-01-01", "2020-12-31", freq="MS");MS
+
+data = data.rename(columns= {"Item Name " : "feature"})
+
+주가 = data[data.feature == "수정주가(원)"].iloc[:,1:]
+시가총액 = data[data.feature == "시가총액 (보통-상장예정주식수 포함)(백만원)"].iloc[:,1:]
+총자산 = data[data.feature == "총자산(천원)"].iloc[:,1:]
+매출액 = data[data.feature == "매출액(천원)"].iloc[:,1:]
+매출원가 = data[data.feature == "매출원가(천원)"].iloc[:,1:]
+판관비 = data[data.feature == "판매비와관리비(천원)"].iloc[:,1:]
+이자비용 = data[data.feature == "이자비용(비영업)(천원)"].iloc[:,1:]
+총자본 = data[data.feature == "총자본(천원)"].iloc[:,1:]
+이연부채 = data[data.feature == "이연법인세부채(천원)"].iloc[:,1:]
+우선주자본금 = data[data.feature == "우선주자본금(천원)"].iloc[:,1:]
+
+ME = pd.date_range("1998-12-31", "2020-12-31", freq="M");ME
+MS = pd.date_range("1999-01-01", "2020-12-31", freq="MS");MS
+
+e_list = []
+s_list = []
+for i in ME  : 
+    val = datetime.datetime.strftime(i, "%Y-%m-%d")
+    e_list.append(val)
+    
+for i in MS  : 
+    val = datetime.datetime.strftime(i, "%Y-%m-%d")
+    s_list.append(val)
+
+e_list[12 * (20+1)]
+
+총자산 = 총자산.loc[:, e_list].fillna(0)
+
+총자산 = (총자산.shift(24, axis=1) - 총자산.shift(12, axis=1))/총자산.shift(24, axis=1)
+
+총자산.to_csv("C:/DART/DATA/자산.csv",)
