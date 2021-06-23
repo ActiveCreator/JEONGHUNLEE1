@@ -1,0 +1,119 @@
+e = pd.date_range('2001-06-30', periods = 235, freq = 'M') # 2001.06 ~ 2020.12
+s = pd.date_range('2001-07-01', periods = 234, freq = 'MS') # 2001.07 ~2020.12
+
+e_list = []
+s_list = []
+for i in e :
+    e_list.append(datetime.datetime.strftime(i, "%Y-%m-%d")) 
+
+for i in s :
+    s_list.append(datetime.datetime.strftime(i, "%Y-%m-%d")) 
+
+col_list = []
+result_list = []
+
+a =12
+b =2
+
+# 모멘텀 펙터 뽑기 
+for i in range(len(s_list)-12) : 
+    # 벡테스팅 기간 동안 상장 & 거래되는 기업 (인덱스) 
+    temp = price.iloc[:, np.array(price.columns)  >= s_list[i]]  # 2001.07.01
+ ############### 12 개월전 , 1개월 후 null값 체크 
+    #bool1 = temp.loc[:, [s_list[i+12-a], s_list[i+12], e_list[i+13] ]]
+    bool1 = temp.loc[:, [s_list[i+12-a], e_list[i+13-b] ]]
+    bool1 = ~ bool1.isnull()
+    test_index = bool1[bool1.prod(axis = 1)==1].index 
+                         
+    #S / B 그룹 인덱스 
+    size = cap.iloc[ : ,  ( np.array(cap.columns)  >= s_list[i+12] ) & ( np.array(cap.columns)  <= e_list[i+13] ) ]  # 2002.07.01 ~ 2002.07.31
+    
+    ## 2001.06.30 기준 cap으로 S / B 그룹 분류 
+    size = size.loc[test_index, s_list[i+12] ]
+    big_index = size[size >= size.quantile(q=0.5)].index
+    small_index = size[size < size.quantile(q=0.5)].index
+    
+ ##########################################################################################################################       
+    ## B/S 별 W L 계산  ( 2001.07.01 ~ 2002.12.30 기간 동안 W & L  )
+    test_data = price.iloc[ : ,  ( np.array(price.columns)  >= s_list[i+12-a] ) & ( np.array(price.columns)  <= e_list[i+13-b] ) ]
+    big_data = test_data.loc[big_index , : ]                 
+    small_data = test_data.loc[small_index , : ]
+    
+    B = (big_data.iloc[:,big_data.shape[1]-1] - big_data.iloc[:,0]) / big_data.iloc[:,0]
+    BW_index = B[B >= B.quantile(q= 0.7)].index        
+    BL_index = B[B <= B.quantile(q= 0.3)].index
+    
+    S = (small_data.iloc[:,small_data.shape[1]-1] - small_data.iloc[:,0]) / small_data.iloc[:,0]
+    SW_index = S[S >= S.quantile(q= 0.7)].index         
+    SL_index = S[S <= S.quantile(q= 0.3)].index
+    
+    test_data = price.iloc[ : ,  ( np.array(price.columns)  >= s_list[i+12] ) & ( np.array(price.columns)  <= e_list[i+13] ) ]
+    BW = test_data.loc[BW_index, : ]
+    BL = test_data.loc[BL_index, : ]
+    SW = test_data.loc[SW_index, : ]
+    SL = test_data.loc[SL_index, : ]
+    
+    BW_size = size.loc[BW_index ]
+    BL_size = size.loc[BL_index ]
+    SW_size = size.loc[SW_index ]
+    SL_size = size.loc[SL_index]
+    
+    BW_VW = BW_size / BW_size.sum()
+    BL_VW = BL_size / BL_size.sum()
+    SW_VW = SW_size / SW_size.sum()
+    SL_VW = SL_size / SL_size.sum()
+    
+    BW_r = ( BW.iloc[:,BW.shape[1]-1] -  BW.iloc[:,0] ) / BW.iloc[:,0]
+    BL_r = ( BL.iloc[:,BL.shape[1]-1] -  BL.iloc[:,0] ) / BL.iloc[:,0]
+    SW_r = ( SW.iloc[:,SW.shape[1]-1] -  SW.iloc[:,0] ) / SW.iloc[:,0]                 
+    SL_r = ( SL.iloc[:,SL.shape[1]-1] -  SL.iloc[:,0] ) / SL.iloc[:,0]                 
+    result = 0.5*(( BW_r *  BW_VW ).sum() + (SW_r *  BL_VW).sum() - (BL_r * SW_VW).sum() - (SL_r * SL_VW).sum()) 
+    result_list.append(result)
+    col_list.append(e_list[i+13])
+    
+    
+    
+aa = pd.DataFrame(np.array([result_list,col_list]).T)
+aa.loc[:, 0] = aa.loc[:, 0].astype(np.float64)
+result = aa.set_index(keys=1)
+print("mean:   ", result.mean())
+print("std:   ", result.std())
+sharp = result.mean() / result.std()
+print("sharp:  ", sharp)
+print("T : ", sharp * np.sqrt(222))
+auto = sm.tsa.acf(result,nlags=1)[1] 
+print("auto : " , auto)
+###################################################################################################
+result.to_csv("C:/Users/ljh8006/논문/코스피UMD/" + str(a) + "_" + str(b) + ".csv")
+
+
+
+
+
+sharp = result.mean() / result.std()
+
+w1 =  result.mean() * (sharp**2 + 1) /(sharp**2 + auto**2 ) 
+
+w2 = (result.mean() * (1-auto) + auto * result.shift(1) ) / (( result.mean()*(1-auto)+ auto * result.shift(1))**2 + (1-auto**2)*result.var())
+
+result_TE = result * w1 *w2
+
+new_sharp = result_TE.mean()/result_TE.std()
+
+
+print("SHARP 증가율:   " ,new_sharp/sharp)
+
+# 예측 비율
+#np.sqrt( (1+ (auto / sharp)**2) / (1-auto**2) )
+
+T = 222
+
+vol_new_sharp = np.sqrt( (1+0.5*new_sharp**2) /T ) 
+vol_sharp = np.sqrt( (1+0.5*sharp**2)/T ) 
+diff = (new_sharp-sharp) 
+print("SR*-SR :   " , diff)
+
+print("Z통계량:     ", diff / np.sqrt( (vol_new_sharp**2)/T + (vol_sharp**2) /T ) )
+
+print("TE_mean :     ", result_TE.mean()  )
+print("TE_std :     ", result_TE.std()  )
