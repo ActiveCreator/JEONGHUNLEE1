@@ -12,10 +12,12 @@ import dateutil
 from IPython.core.interactiveshell import InteractiveShell
 InteractiveShell.ast_node_interactivity = "all"
 
-data = pd.read_csv("C:/DART/DATA/FF5_KSE.csv", encoding = "CP949", thousands = ',')
-data = data.drop(["Kind", "Item", "Symbol", "Frequency"], axis = 1)
+PATH = "C:/DART/DATA/논문/"
+
+data = pd.read_csv(PATH + "FF5_annual.csv", encoding= "CP949",thousands = ',')
 data = data.set_index(keys = 'Symbol Name')
-
+#data = data.drop(["Kind", "Item", "Symbol", "Frequency"], axis = 1)
+data = data.drop(["Symbol"], axis = 1)
 data = data.rename(columns= {"Item Name " : "feature"})
 
 주가 = data[data.feature == "수정주가(원)"].iloc[:,1:]
@@ -29,39 +31,62 @@ data = data.rename(columns= {"Item Name " : "feature"})
 이연부채 = data[data.feature == "이연법인세부채(천원)"].iloc[:,1:]
 우선주자본금 = data[data.feature == "우선주자본금(천원)"].iloc[:,1:]
 
-ME = pd.date_range("1998-12-31", "2020-12-31", freq="M");ME
-MS = pd.date_range("1999-01-01", "2020-12-31", freq="MS");MS
+e = pd.date_range("1998-12-31", "2020-12-31", freq="M")
+s= pd.date_range("1999-01-01", "2020-12-31", freq="MS")
 
-data = data.rename(columns= {"Item Name " : "feature"})
-
-주가 = data[data.feature == "수정주가(원)"].iloc[:,1:]
-시가총액 = data[data.feature == "시가총액 (보통-상장예정주식수 포함)(백만원)"].iloc[:,1:]
-총자산 = data[data.feature == "총자산(천원)"].iloc[:,1:]
-매출액 = data[data.feature == "매출액(천원)"].iloc[:,1:]
-매출원가 = data[data.feature == "매출원가(천원)"].iloc[:,1:]
-판관비 = data[data.feature == "판매비와관리비(천원)"].iloc[:,1:]
-이자비용 = data[data.feature == "이자비용(비영업)(천원)"].iloc[:,1:]
-총자본 = data[data.feature == "총자본(천원)"].iloc[:,1:]
-이연부채 = data[data.feature == "이연법인세부채(천원)"].iloc[:,1:]
-우선주자본금 = data[data.feature == "우선주자본금(천원)"].iloc[:,1:]
-
-ME = pd.date_range("1998-12-31", "2020-12-31", freq="M");ME
-MS = pd.date_range("1999-01-01", "2020-12-31", freq="MS");MS
 
 e_list = []
 s_list = []
-for i in ME  : 
+for i in e  : 
     val = datetime.datetime.strftime(i, "%Y-%m-%d")
     e_list.append(val)
     
-for i in MS  : 
+for i in s  : 
     val = datetime.datetime.strftime(i, "%Y-%m-%d")
     s_list.append(val)
+    
+    
+rebal = pd.date_range('2000-07-01', '2020-07-01', freq = '6MS')
+rebal_list = []
+for i in rebal  : 
+    val = datetime.datetime.strftime(i, "%Y-%m-%d")
+    rebal_list.append(val)
+rebal_list = rebal_list[0::2]
 
-e_list[12 * (20+1)]
+수익성 = 매출액 - 매출원가 - 판관비 - 이자비용
+장부가치 = 총자본 + 이연부채 - 우선주자본금 
 
-총자산 = 총자산.loc[:, e_list].fillna(0)
+temp_수익성 = 수익성.T
+temp_수익성["YEAR"] = pd.to_datetime(수익성.T.index).year
+temp_수익성 = temp_수익성.groupby(['YEAR']).last()
 
-총자산 = (총자산.shift(24, axis=1) - 총자산.shift(12, axis=1))/총자산.shift(24, axis=1)
+temp_총자산 = 총자산.T
+temp_총자산["YEAR"] = pd.to_datetime(총자산.T.index).year
+OP = (temp - temp.shift(1)) / temp.shift(1)
 
-총자산.to_csv("C:/DART/DATA/자산.csv",)
+temp_장부가치 = 장부가치.T
+temp_장부가치["YEAR"] = pd.to_datetime(장부가치.T.index).year
+temp_장부가치 = temp_장부가치.groupby(['YEAR']).last()
+
+# 12월의 시가총액 
+temp_시가총액 = 시가총액.T
+temp_시가총액["YEAR"] = pd.to_datetime(시가총액.T.index).year
+temp_시가총액 = temp_시가총액.groupby(['YEAR']).last()
+
+ME = temp_시가총액
+BM = temp_장부가치 / temp_시가총액 
+
+
+def BP(df, q, penny_q, option ) :
+    if option == "upper" :
+        result =  df.T[ df.T >=  df.quantile(q, axis = 1) ]
+    else : 
+        result =  df.T[ (df.T <  df.quantile(q, axis = 1) ) &  (df.T >=  df.quantile(penny_q, axis = 1)) ]
+    return result
+
+def BP_To_Index(df,year) :
+    return df[[year]].notnull().index
+    
+#( BM.T >= BM.quantile(0.7, axis=1) ) 
+#( BM.T <= BM.quantile(0.3, axis=1) )
+#BM.T[ BM.T >= BM.quantile(0.7, axis=1) ][[1998]].notnull().index
